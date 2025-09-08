@@ -1,9 +1,16 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import '../models/user.dart';
 import '../services/firestore_service.dart';
 
 class UserController with ChangeNotifier {
-  final _fs = FirestoreService.instance;
+  final FirestoreService _db = FirestoreService();
 
-  Future<void> setActive(String uid, bool active) =>
-      _fs.setUserActive(uid, active);
+  Stream<List<AppUser>> fetchUsers() {
+    return _db.getUsers();
+  }
+
+  Future<void> updateUserStatus(String uid, bool isActive) async {
+    await _db.updateUserStatus(uid, isActive);
+    notifyListeners();
+  }
 }

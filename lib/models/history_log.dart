@@ -1,47 +1,41 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HistoryLog {
-  final String id; // log doc id
-  final String sn; // shared per item
-  final String role;
+  final String id;
+  final String sn;
   final String userId;
-  final String userName;
-  final String status; // completed | duplicate
-  final String? reason; // if duplicate
+  final String role;
   final DateTime timestamp;
+  final String? reason;
 
   HistoryLog({
     required this.id,
     required this.sn,
-    required this.role,
     required this.userId,
-    required this.userName,
-    required this.status,
+    required this.role,
     required this.timestamp,
     this.reason,
   });
 
-  Map<String, dynamic> toMap() => {
-        'sn': sn,
-        'role': role,
-        'userId': userId,
-        'userName': userName,
-        'status': status,
-        'reason': reason,
-        'timestamp': Timestamp.fromDate(timestamp),
-      };
-
-  factory HistoryLog.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final d = doc.data()!;
+  factory HistoryLog.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return HistoryLog(
       id: doc.id,
-      sn: d['sn'] as String,
-      role: d['role'] as String,
-      userId: d['userId'] as String,
-      userName: d['userName'] as String? ?? '',
-      status: d['status'] as String,
-      reason: d['reason'] as String?,
-      timestamp: (d['timestamp'] as Timestamp).toDate(),
+      sn: data['sn'] ?? '',
+      userId: data['userId'] ?? '',
+      role: data['role'] ?? '',
+      timestamp: (data['timestamp'] as Timestamp).toDate(),
+      reason: data['reason'],
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'sn': sn,
+      'userId': userId,
+      'role': role,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'reason': reason,
+    };
   }
 }

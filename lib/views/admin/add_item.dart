@@ -1,75 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-import '../../models/job_order.dart';
+import '../../models/item.dart';
 import '../../services/firestore_service.dart';
-import '../../views/widgets/custom_text_field.dart';
-import '../../views/widgets/custom_button.dart';
+import '../widgets/custom_text_field.dart';
+import '../widgets/custom_button.dart';
 import '../../utils/validators.dart';
 
-class AddJobOrderPage extends StatefulWidget {
-  const AddJobOrderPage({super.key});
+class AddItemPage extends StatefulWidget {
+  final String jobOrderId;
+  const AddItemPage({super.key, required this.jobOrderId});
 
   @override
-  State<AddJobOrderPage> createState() => _AddJobOrderPageState();
+  State<AddItemPage> createState() => _AddItemPageState();
 }
 
-class _AddJobOrderPageState extends State<AddJobOrderPage> {
+class _AddItemPageState extends State<AddItemPage> {
   final _formKey = GlobalKey<FormState>();
-  final _clientCtrl = TextEditingController();
-  final _orderNumberCtrl = TextEditingController();
-  DateTime? _deliveryDate;
+  final _codeCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _qtyCtrl = TextEditingController(text: '1');
   bool _saving = false;
 
   final _db = FirestoreService();
 
-  Future<void> _pickDate() async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: now,
-      firstDate: now.subtract(const Duration(days: 365 * 5)),
-      lastDate: now.add(const Duration(days: 365 * 5)),
-    );
-    if (picked != null) {
-      setState(() => _deliveryDate = picked);
-    }
-  }
-
   Future<void> _save() async {
-    if (!_formKey.currentState!.validate() || _deliveryDate == null) return;
+    if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final order = JobOrder(
-      id: '', // Firestore will assign
-      clientName: _clientCtrl.text.trim(),
-      orderNumber: _orderNumberCtrl.text.trim(),
-      deliveryDate: _deliveryDate!,
+    final item = Item(
+      id: '',
+      code: _codeCtrl.text.trim(),
+      description: _descCtrl.text.trim(),
+      quantity: int.tryParse(_qtyCtrl.text) ?? 1,
     );
-    await _db.addJobOrder(order);
+    await _db.addItem(widget.jobOrderId, item);
 
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Job order added')),
+        const SnackBar(content: Text('Item added')),
       );
     }
   }
 
   @override
   void dispose() {
-    _clientCtrl.dispose();
-    _orderNumberCtrl.dispose();
+    _codeCtrl.dispose();
+    _descCtrl.dispose();
+    _qtyCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final dateText = _deliveryDate == null
-        ? 'Choose delivery date'
-        : DateFormat.yMMMd().format(_deliveryDate!);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Job Order')),
+      appBar: AppBar(title: const Text('Add Item')),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
@@ -83,24 +67,22 @@ class _AddJobOrderPageState extends State<AddJobOrderPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     CustomTextField(
-                      controller: _clientCtrl,
-                      label: 'Client Name',
+                      controller: _codeCtrl,
+                      label: 'Item Code',
                       validator: Validators.requiredField,
                     ),
                     const SizedBox(height: 12),
                     CustomTextField(
-                      controller: _orderNumberCtrl,
-                      label: 'Order Number',
+                      controller: _descCtrl,
+                      label: 'Description',
                       validator: Validators.requiredField,
                     ),
                     const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: _pickDate,
-                        icon: const Icon(Icons.date_range),
-                        label: Text(dateText),
-                      ),
+                    CustomTextField(
+                      controller: _qtyCtrl,
+                      label: 'Quantity',
+                      keyboardType: TextInputType.number,
+                      validator: Validators.positiveInt,
                     ),
                     const SizedBox(height: 20),
                     Row(

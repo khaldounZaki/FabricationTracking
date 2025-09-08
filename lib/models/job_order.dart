@@ -1,35 +1,37 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class JobOrder {
-  final String id; // doc id (use orderNumber or autoId)
-  final String orderNumber;
+  final String id;
   final String clientName;
+  final String orderNumber;
   final DateTime deliveryDate;
-  final DateTime createdAt;
+  final String status; // NEW
 
   JobOrder({
     required this.id,
-    required this.orderNumber,
     required this.clientName,
+    required this.orderNumber,
     required this.deliveryDate,
-    required this.createdAt,
+    this.status = "In Progress", // default
   });
 
-  Map<String, dynamic> toMap() => {
-        'orderNumber': orderNumber,
-        'clientName': clientName,
-        'deliveryDate': Timestamp.fromDate(deliveryDate),
-        'createdAt': Timestamp.fromDate(createdAt),
-      };
-
-  factory JobOrder.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  factory JobOrder.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return JobOrder(
       id: doc.id,
-      orderNumber: data['orderNumber'] as String,
-      clientName: data['clientName'] as String,
+      clientName: data['clientName'] ?? '',
+      orderNumber: data['orderNumber'] ?? '',
       deliveryDate: (data['deliveryDate'] as Timestamp).toDate(),
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      status: data['status'] ?? "In Progress",
     );
+  }
+
+  Map<String, dynamic> toMap() {
+    return {
+      'clientName': clientName,
+      'orderNumber': orderNumber,
+      'deliveryDate': Timestamp.fromDate(deliveryDate),
+      'status': status,
+    };
   }
 }

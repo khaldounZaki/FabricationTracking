@@ -1,29 +1,57 @@
-import 'dart:io';
 import 'package:excel/excel.dart';
+import '../models/item.dart';
 
 class ExcelService {
-  /// Expected columns: Code | Description | Quantity
-  /// Returns a list of maps: {code, description, quantity}
-  List<Map<String, dynamic>> parseItemsExcel(File file) {
-    final bytes = file.readAsBytesSync();
+  /// Parse items from Excel file (Import)
+  List<Item> parseItems(List<int> bytes) {
     final excel = Excel.decodeBytes(bytes);
-    final out = <Map<String, dynamic>>[];
+    final List<Item> items = [];
 
-    for (final table in excel.tables.keys) {
-      final sheet = excel.tables[table]!;
-      if (sheet.maxRows <= 1) continue; // skip header only
-      // Assume first row is header
-      for (var r = 1; r < sheet.maxRows; r++) {
-        final row = sheet.row(r);
-        if (row.isEmpty) continue;
-        final code = row[0]?.value?.toString().trim() ?? '';
-        final desc = row[1]?.value?.toString().trim() ?? '';
-        final qtyStr = row[2]?.value?.toString().trim() ?? '0';
-        final qty = int.tryParse(qtyStr) ?? 0;
-        if (code.isEmpty) continue;
-        out.add({'code': code, 'description': desc, 'quantity': qty});
+    for (var table in excel.tables.keys) {
+      final sheet = excel.tables[table];
+      if (sheet == null) continue;
+
+      for (var row in sheet.rows.skip(1)) {
+        // Skip header row
+        final code = row.isNotEmpty ? row[0]?.value.toString() ?? '' : '';
+        final description =
+            row.length > 1 ? row[1]?.value.toString() ?? '' : '';
+        final quantityStr =
+            row.length > 2 ? row[2]?.value.toString() ?? '0' : '0';
+
+        items.add(
+          Item(
+            id: '',
+            code: code,
+            description: description,
+            quantity: int.tryParse(quantityStr) ?? 0,
+          ),
+        );
       }
     }
-    return out;
+    return items;
+  }
+
+  /// Export items to Excel (Optional)
+  List<int> exportItems(List<Item> items) {
+    final excel = Excel.createExcel();
+    final sheet = excel['Items'];
+
+    // Header row
+    sheet.appendRow([
+      TextCellValue('Code'),
+      TextCellValue('Description'),
+      TextCellValue('Quantity'),
+    ]);
+
+    for (var item in items) {
+      sheet.appendRow([
+        TextCellValue(item.code),
+        TextCellValue(item.description),
+        IntCellValue(item.quantity),
+      ]);
+    }
+
+    return excel.encode()!;
   }
 }

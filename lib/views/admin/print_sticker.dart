@@ -59,38 +59,38 @@ class _PrintStickerPageState extends State<PrintStickerPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Print Sticker')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          CustomTextField(
-              controller: _client,
-              label: 'Client',
-              validator: Validators.requiredText),
-          const SizedBox(height: 12),
-          CustomTextField(
-              controller: _orderNumber,
-              label: 'Order Number',
-              validator: Validators.requiredText),
-          const SizedBox(height: 12),
-          CustomTextField(
-              controller: _itemCode,
-              label: 'Item Code',
-              validator: Validators.requiredText),
-          const SizedBox(height: 12),
-          CustomTextField(
-              controller: _part,
-              label: 'Part',
-              validator: Validators.requiredText),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            icon: const Icon(Icons.print),
-            label: const Text('Preview & Print'),
-            onPressed: () async {
-              await Printing.layoutPdf(onLayout: (_) => _buildPdf());
-            },
-          ),
-        ],
-      ),
+      // body: ListView(
+      //   padding: const EdgeInsets.all(16),
+      //   children: [
+      //     CustomTextField(
+      //         controller: _client,
+      //         label: 'Client',
+      //         validator: Validators.requiredText),
+      //     const SizedBox(height: 12),
+      //     CustomTextField(
+      //         controller: _orderNumber,
+      //         label: 'Order Number',
+      //         validator: Validators.requiredText),
+      //     const SizedBox(height: 12),
+      //     CustomTextField(
+      //         controller: _itemCode,
+      //         label: 'Item Code',
+      //         validator: Validators.requiredText),
+      //     const SizedBox(height: 12),
+      //     CustomTextField(
+      //         controller: _part,
+      //         label: 'Part',
+      //         validator: Validators.requiredText),
+      //     const SizedBox(height: 24),
+      //     FilledButton.icon(
+      //       icon: const Icon(Icons.print),
+      //       label: const Text('Preview & Print'),
+      //       onPressed: () async {
+      //         await Printing.layoutPdf(onLayout: (_) => _buildPdf());
+      //       },
+      //     ),
+      //   ],
+      // ),
     );
   }
 }

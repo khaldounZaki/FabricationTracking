@@ -1,45 +1,34 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../models/job_order.dart';
 import '../models/item.dart';
 import '../services/firestore_service.dart';
 
 class JobOrderController with ChangeNotifier {
-  final _fs = FirestoreService.instance;
+  final FirestoreService _db = FirestoreService();
+  List<JobOrder> jobOrders = [];
+  bool isLoading = false;
 
-  Stream<List<JobOrder>> watchJobOrders() => _fs.watchJobOrders();
-
-  Future<void> addJobOrder({
-    required String orderNumber,
-    required String clientName,
-    required DateTime deliveryDate,
-  }) async {
-    final jo = JobOrder(
-      id: orderNumber, // using orderNumber as doc id
-      orderNumber: orderNumber,
-      clientName: clientName,
-      deliveryDate: deliveryDate,
-      createdAt: DateTime.now(),
-    );
-    await _fs.addJobOrder(jo);
+  Stream<List<JobOrder>> fetchJobOrders() {
+    return _db.getJobOrders();
   }
 
-  Stream<List<Item>> watchItems(String orderId) => _fs.watchItems(orderId);
+  Future<void> addJobOrder(JobOrder jobOrder) async {
+    isLoading = true;
+    notifyListeners();
+    await _db.addJobOrder(jobOrder);
+    isLoading = false;
+    notifyListeners();
+  }
 
-  Future<void> addItem({
-    required String orderId,
-    required String code,
-    required String description,
-    required int quantity,
-  }) async {
-    final sn = '$orderId-$code';
-    final item = Item(
-      id: code,
-      code: code,
-      description: description,
-      quantity: quantity,
-      sn: sn,
-      createdAt: DateTime.now(),
-    );
-    await _fs.addItem(orderId, item);
+  Future<void> deleteJobOrder(String id) async {
+    await _db.deleteJobOrder(id);
+  }
+
+  Stream<List<Item>> fetchItems(String jobOrderId) {
+    return _db.getItems(jobOrderId);
+  }
+
+  Future<void> addItem(String jobOrderId, Item item) async {
+    await _db.addItem(jobOrderId, item);
   }
 }

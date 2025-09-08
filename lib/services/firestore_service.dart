@@ -1,86 +1,102 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/job_order.dart';
 import '../models/item.dart';
+import '../models/part.dart';
+import '../models/user.dart';
 import '../models/history_log.dart';
 
 class FirestoreService {
-  FirestoreService._();
-  static final instance = FirestoreService._();
-  final _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Collections
-  CollectionReference<Map<String, dynamic>> get _jobOrders =>
-      _db.collection('jobOrders');
-
-  // -------- Job Orders --------
-  Future<void> addJobOrder(JobOrder jo) async {
-    await _jobOrders.doc(jo.id).set(jo.toMap());
+  // ---------------- Job Orders ----------------
+  Future<void> addJobOrder(JobOrder jobOrder) async {
+    await _db.collection('job_orders').add(jobOrder.toMap());
   }
 
-  Stream<List<JobOrder>> watchJobOrders() {
-    return _jobOrders
-        .orderBy('createdAt', descending: true)
+  Stream<List<JobOrder>> getJobOrders() {
+    return _db.collection('job_orders').snapshots().map((snapshot) =>
+        snapshot.docs.map((doc) => JobOrder.fromFirestore(doc)).toList());
+  }
+
+  Future<void> deleteJobOrder(String id) async {
+    await _db.collection('job_orders').doc(id).delete();
+  }
+
+  // ---------------- Items ----------------
+  Future<void> addItem(String jobOrderId, Item item) async {
+    await _db
+        .collection('job_orders')
+        .doc(jobOrderId)
+        .collection('items')
+        .add(item.toMap());
+  }
+
+  Stream<List<Item>> getItems(String jobOrderId) {
+    return _db
+        .collection('job_orders')
+        .doc(jobOrderId)
+        .collection('items')
         .snapshots()
-        .map((s) => s.docs.map((d) => JobOrder.fromDoc(d)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Item.fromFirestore(doc)).toList());
   }
 
-  Future<JobOrder?> getJobOrder(String id) async {
-    final doc = await _jobOrders.doc(id).get();
-    if (!doc.exists) return null;
-    return JobOrder.fromDoc(doc as DocumentSnapshot<Map<String, dynamic>>);
+  // ---------------- Parts ----------------
+  Future<void> addPart(String jobOrderId, String itemId, Part part) async {
+    await _db
+        .collection('job_orders')
+        .doc(jobOrderId)
+        .collection('items')
+        .doc(itemId)
+        .collection('parts')
+        .add(part.toMap());
   }
 
-  // -------- Items (subcollection) --------
-  CollectionReference<Map<String, dynamic>> itemsRef(String orderId) =>
-      _jobOrders.doc(orderId).collection('items');
-
-  Future<void> addItem(String orderId, Item item) async {
-    await itemsRef(orderId).doc(item.id).set(item.toMap());
-  }
-
-  Stream<List<Item>> watchItems(String orderId) {
-    return itemsRef(orderId)
-        .orderBy('createdAt', descending: true)
+  Stream<List<Part>> getParts(String jobOrderId, String itemId) {
+    return _db
+        .collection('job_orders')
+        .doc(jobOrderId)
+        .collection('items')
+        .doc(itemId)
+        .collection('parts')
         .snapshots()
-        .map((s) => s.docs.map((d) => Item.fromDoc(d)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Part.fromFirestore(doc)).toList());
   }
 
-  // -------- Parts (subcollection under item) --------
-  CollectionReference<Map<String, dynamic>> partsRef(
-          String orderId, String itemId) =>
-      itemsRef(orderId).doc(itemId).collection('parts');
-
-  Future<void> addPart(
-      String orderId, String itemId, String partDescription, String sn) async {
-    await partsRef(orderId, itemId).add({
-      'description': partDescription,
-      'stickerSN': sn,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+  // ---------------- Users ----------------
+  Future<void> addUser(AppUser user) async {
+    await _db.collection('users').doc(user.uid).set(user.toMap());
   }
 
-  // -------- History (subcollection under item) --------
-  CollectionReference<Map<String, dynamic>> historyRef(
-          String orderId, String itemId) =>
-      itemsRef(orderId).doc(itemId).collection('history');
-
-  Future<void> addHistoryLog(
-      String orderId, String itemId, HistoryLog log) async {
-    await historyRef(orderId, itemId).add(log.toMap());
+  Stream<List<AppUser>> getUsers() {
+    return _db.collection('users').snapshots().map((snapshot) => snapshot.docs
+        .map((doc) => AppUser.fromMap(doc.data(), doc.id))
+        .toList());
   }
 
-  Stream<List<HistoryLog>> watchHistory(String orderId, String itemId) {
-    return historyRef(orderId, itemId)
+  Future<void> updateUserStatus(String uid, bool isActive) async {
+    await _db.collection('users').doc(uid).update({'isActive': isActive});
+  }
+
+  // ---------------- History ----------------
+  Future<void> logAction(HistoryLog log) async {
+    await _db.collection('history_logs').add(log.toMap());
+  }
+
+  Stream<List<HistoryLog>> getLogs() {
+    return _db
+        .collection('history_logs')
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((s) => s.docs.map((d) => HistoryLog.fromDoc(d)).toList());
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => HistoryLog.fromFirestore(doc)).toList());
   }
 
-  // -------- Users --------
-  CollectionReference<Map<String, dynamic>> get usersRef =>
-      _db.collection('users');
-
-  Future<void> setUserActive(String uid, bool active) async {
-    await usersRef.doc(uid).update({'active': active});
+  Future<void> updateJobOrderStatus(String jobOrderId, String status) async {
+    await _db
+        .collection('job_orders')
+        .doc(jobOrderId)
+        .update({'status': status});
   }
 }
