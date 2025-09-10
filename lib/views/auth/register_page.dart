@@ -27,9 +27,10 @@ class _RegisterPageState extends State<RegisterPage> {
       await _authService.registerUser(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        displayName: _nameController.text.trim(),
+        name: _nameController.text.trim(), // ✅ fixed here
       );
-      // User created → needs admin to activate & assign role
+
+      // User created → needs admin approval
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -76,13 +77,18 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                   const SizedBox(height: 24),
                   if (_error != null)
-                    Text(_error!,
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 14)),
+                    Text(
+                      _error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                    ),
                   ElevatedButton(
                     onPressed: _loading ? null : _register,
                     child: _loading
-                        ? const CircularProgressIndicator()
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Text("Register"),
                   ),
                 ],

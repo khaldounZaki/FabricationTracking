@@ -64,21 +64,6 @@ class FirestoreService {
             snapshot.docs.map((doc) => Part.fromFirestore(doc)).toList());
   }
 
-  // ---------------- Users ----------------
-  Future<void> addUser(AppUser user) async {
-    await _db.collection('users').doc(user.uid).set(user.toMap());
-  }
-
-  Stream<List<AppUser>> getUsers() {
-    return _db.collection('users').snapshots().map((snapshot) => snapshot.docs
-        .map((doc) => AppUser.fromMap(doc.data(), doc.id))
-        .toList());
-  }
-
-  Future<void> updateUserStatus(String uid, bool isActive) async {
-    await _db.collection('users').doc(uid).update({'isActive': isActive});
-  }
-
   // ---------------- History ----------------
   Future<void> logAction(HistoryLog log) async {
     await _db.collection('history_logs').add(log.toMap());
@@ -98,5 +83,105 @@ class FirestoreService {
         .collection('job_orders')
         .doc(jobOrderId)
         .update({'status': status});
+  }
+
+  // // users stream
+  // Stream<List<AppUser>> getUsers() {
+  //   return _db.collection('users').snapshots().map((snap) =>
+  //       snap.docs.map((d) => AppUser.fromMap(d.data(), d.id)).toList());
+  // }
+
+  // Future<void> updateUserStatus(String uid, bool isActive) async {
+  //   await _db.collection('users').doc(uid).update({'isActive': isActive});
+  // }
+
+  // Future<void> updateUserInfo({
+  //   required String uid,
+  //   required String name,
+  //   required String phone,
+  //   required String photoUrl,
+  //   required String role,
+  // }) async {
+  //   await _db.collection('users').doc(uid).update({
+  //     'name': name,
+  //     'phone': phone,
+  //     'photoUrl': photoUrl,
+  //     'role': role,
+  //   });
+  // }
+
+  // Future<void> addUser({
+  //   required String email,
+  //   required String name,
+  //   required String phone,
+  //   required String photoUrl,
+  //   required String role,
+  // }) async {
+  //   await _db.collection('users').add({
+  //     'email': email,
+  //     'isActive': true,
+  //     'name': name,
+  //     'phone': phone,
+  //     'photoUrl': photoUrl,
+  //     'role': role,
+  //   });
+  // }
+
+  /// Stream all users as AppUser
+  Stream<List<AppUser>> getUsers() {
+    return _db.collection('users').snapshots().map(
+          (snap) => snap.docs
+              .map((d) =>
+                  AppUser.fromMap(d.data() as Map<String, dynamic>?, d.id))
+              .toList(),
+        );
+  }
+
+  /// Fetch users once (optional)
+  Future<List<AppUser>> getUsersOnce() async {
+    final snap = await _db.collection('users').get();
+    return snap.docs
+        .map((d) => AppUser.fromMap(d.data() as Map<String, dynamic>?, d.id))
+        .toList();
+  }
+
+  /// Toggle active/block
+  Future<void> updateUserStatus(String uid, bool isActive) async {
+    await _db.collection('users').doc(uid).update({'isActive': isActive});
+  }
+
+  /// Update user profile info (name, phone, photoUrl, role)
+  Future<void> updateUserInfo({
+    required String uid,
+    required String name,
+    required String phone,
+    required String photoUrl,
+    required String role,
+  }) async {
+    await _db.collection('users').doc(uid).update({
+      'name': name,
+      'phone': phone,
+      'photoUrl': photoUrl,
+      'role': role,
+    });
+  }
+
+  /// Add a manual user document (admin created)
+  Future<void> addUser({
+    required String email,
+    required String name,
+    required String phone,
+    required String photoUrl,
+    required String role,
+    bool isActive = true,
+  }) async {
+    await _db.collection('users').add({
+      'email': email,
+      'isActive': isActive,
+      'name': name,
+      'phone': phone,
+      'photoUrl': photoUrl,
+      'role': role,
+    });
   }
 }

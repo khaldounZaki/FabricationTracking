@@ -4,6 +4,7 @@ import 'package:workshop_admin/views/admin/job_order_detail.dart';
 import '../../models/job_order.dart';
 import '../../services/firestore_service.dart';
 import '../../services/auth_service.dart';
+import 'users_list.dart';
 
 class JobOrdersListPage extends StatefulWidget {
   const JobOrdersListPage({super.key});
@@ -28,7 +29,12 @@ class _JobOrdersListPageState extends State<JobOrdersListPage> {
           IconButton(
             icon: const Icon(Icons.group),
             tooltip: 'Users',
-            onPressed: () => Navigator.pushNamed(context, '/users'),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const UsersPage(),
+              ),
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.logout),
