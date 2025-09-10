@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../models/part.dart';
 
@@ -18,24 +19,49 @@ class PartDetailPage extends StatelessWidget {
     required this.orderNumber,
     required this.itemCode,
   });
-
   Future<void> _printSticker(BuildContext context) async {
-    // Placeholder: integrate your printing solution (e.g., pdf or direct print)
-    await showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Print Sticker'),
-        content: Text(
-          'Client: $clientName\nOrder: $orderNumber\nItem Code: $itemCode\nPart: ${part.description}\nSN: ${part.sn}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          )
+    try {
+      // ZPL for 10x5 cm (800 x 400 dots at 203 dpi)
+      final zpl = """
+^XA
+^PW800
+^LL400
+^CF0,40
+
+^FO40,40^FDClient: $clientName^FS
+^FO40,90^FDOrder: $orderNumber^FS
+^FO40,140^FDItem: $itemCode^FS
+^FO40,190^FDPart: ${part.description}^FS
+^FO500,25^BQN,2,10
+^FDQA,${part.sn}^FS
+^XZ
+""";
+
+      // Save ZPL to file
+      final file = File('label.zpl');
+      await file.writeAsString(zpl);
+
+      // Send to Zebra printer
+      await Process.run(
+        'cmd',
+        [
+          '/C',
+          r'print /d:\\192.168.0.45\BigSticker label.zpl',
         ],
-      ),
-    );
+      );
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sticker sent to printer.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error during printing.')),
+        );
+      }
+    }
   }
 
   @override
@@ -59,8 +85,10 @@ class PartDetailPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Part: ${part.description}',
-                    style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  'Part: ${part.description}',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 8),
                 ...info.map((t) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
