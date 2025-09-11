@@ -2,9 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class HistoryLog {
   final String id;
-  final String sn;
+  final String sn; // item sn
   final String userId;
+  final String userName;
   final String role;
+  final String jobOrderId;
+  final String itemId;
   final DateTime timestamp;
   final String? reason;
 
@@ -12,7 +15,10 @@ class HistoryLog {
     required this.id,
     required this.sn,
     required this.userId,
+    required this.userName,
     required this.role,
+    required this.jobOrderId,
+    required this.itemId,
     required this.timestamp,
     this.reason,
   });
@@ -23,19 +29,23 @@ class HistoryLog {
       id: doc.id,
       sn: data['sn'] ?? '',
       userId: data['userId'] ?? '',
+      userName: data['userName'] ?? '',
       role: data['role'] ?? '',
+      jobOrderId: data['jobOrderId'] ?? '',
+      itemId: data['itemId'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
-      reason: data['reason'],
+      reason: data["reason"] ?? '',
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'sn': sn,
-      'userId': userId,
-      'role': role,
-      'timestamp': Timestamp.fromDate(timestamp),
-      'reason': reason,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'sn': sn,
+        'userId': userId,
+        'userName': userName,
+        'role': role,
+        'jobOrderId': jobOrderId,
+        'itemId': itemId,
+        'timestamp': Timestamp.fromDate(timestamp),
+        'reason': reason,
+      };
 }

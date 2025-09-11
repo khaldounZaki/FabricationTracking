@@ -184,4 +184,84 @@ class FirestoreService {
       'role': role,
     });
   }
+
+  Future<List<Map<String, dynamic>>> getUserScanLogs(String userId) async {
+    final snap = await _db
+        .collection('scan_logs')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .get();
+
+    List<Map<String, dynamic>> result = [];
+
+    for (var doc in snap.docs) {
+      final log = HistoryLog.fromFirestore(doc);
+
+      // Get job order
+      final jobDoc =
+          await _db.collection('job_orders').doc(log.jobOrderId).get();
+      final jobData = jobDoc.data() ?? {};
+
+      // Get item
+      final itemDoc = await _db
+          .collection('job_orders')
+          .doc(log.jobOrderId)
+          .collection('items')
+          .doc(log.itemId)
+          .get();
+      final itemData = itemDoc.data() ?? {};
+
+      result.add({
+        'jobOrderNumber': jobData['orderNumber'] ?? '',
+        'clientName': jobData['clientName'] ?? '',
+        'itemCode': itemData['code'] ?? '',
+        'itemDescription': itemData['description'] ?? '',
+        'sn': log.sn,
+        'reason': log.reason ?? '',
+        'timestamp': log.timestamp.toString(), // 👈 ensure string
+      });
+    }
+
+    return result;
+  }
+
+  Future<List<Map<String, dynamic>>> getScansForItem(
+      String jobOrderId, String itemId) async {
+    try {
+      final snap = await _db
+          .collection('scan_logs')
+          .where('jobOrderId', isEqualTo: jobOrderId)
+          .where('itemId', isEqualTo: itemId)
+          .orderBy('timestamp', descending: true)
+          .get();
+
+      List<Map<String, dynamic>> result = [];
+
+      for (var doc in snap.docs) {
+        final data = doc.data();
+
+        // fetch user who scanned
+        final userDoc = await _db.collection('users').doc(data['userId']).get();
+        final userData = userDoc.data() ?? {};
+
+        result.add({
+          'userId': data['userId'],
+          'name': userData['name'] ?? '',
+          'role': userData['role'] ?? '',
+          'photoUrl': userData['photoUrl'] ?? '',
+          'date': data['timestamp'] != null
+              ? (data['timestamp'] as Timestamp)
+                  .toDate()
+                  .toString()
+                  .split(' ')[0]
+              : '',
+        });
+      }
+
+      return result;
+    } catch (e) {
+      print("Error fetching scans for item: $e");
+      return [];
+    }
+  }
 }

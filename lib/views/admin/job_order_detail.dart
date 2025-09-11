@@ -33,11 +33,10 @@ class _JobOrderDetailPageState extends State<JobOrderDetailPage> {
 
   Future<void> _importFromExcel() async {
     try {
-      // Pick an Excel file
       FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['xlsx'],
-        withData: true, // ensures bytes on web/desktop
+        withData: true,
       );
 
       if (result == null) return;
@@ -45,7 +44,6 @@ class _JobOrderDetailPageState extends State<JobOrderDetailPage> {
       Uint8List? fileBytes = result.files.single.bytes;
       String? filePath = result.files.single.path;
 
-      // If bytes are null (common on mobile), read from path
       if (fileBytes == null && filePath != null) {
         fileBytes = await File(filePath).readAsBytes();
       }
@@ -60,18 +58,15 @@ class _JobOrderDetailPageState extends State<JobOrderDetailPage> {
 
       int addedCount = 0;
       for (var row in rows.skip(1)) {
-        // Expected: Code | Description | Quantity
         final code = row[0]?.value.toString() ?? '';
         final description = row[1]?.value.toString() ?? '';
         final quantityStr = row[2]?.value.toString() ?? '0';
         final quantity = int.tryParse(quantityStr) ?? 0;
 
-        print("Row -> Code: $code, Desc: $description, Qty: $quantity");
-
         if (code.isEmpty) continue;
 
         final item = Item(
-          id: '', // Firestore will assign ID
+          id: '',
           code: code,
           description: description,
           quantity: quantity,
@@ -91,6 +86,41 @@ class _JobOrderDetailPageState extends State<JobOrderDetailPage> {
         const SnackBar(content: Text("Failed to import from Excel")),
       );
     }
+  }
+
+  Widget _buildScannedUsers(String jobOrderId, String itemId) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _db.getScansForItem(jobOrderId, itemId),
+      builder: (context, snap) {
+        if (!snap.hasData || snap.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        final scans = snap.data!;
+        return Wrap(
+          spacing: 6,
+          children: scans.map((s) {
+            return Tooltip(
+              message:
+                  "${s['name']} (${s['role']})\n${s['date']}", // short info
+              child: CircleAvatar(
+                radius: 14,
+                backgroundImage: s['photoUrl'] != null && s['photoUrl'] != ''
+                    ? NetworkImage(s['photoUrl'])
+                    : null,
+                child: s['photoUrl'] == null || s['photoUrl'] == ''
+                    ? Text(
+                        s['name'] != null && s['name'].isNotEmpty
+                            ? s['name'][0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(fontSize: 12),
+                      )
+                    : null,
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
   }
 
   @override
@@ -127,24 +157,38 @@ class _JobOrderDetailPageState extends State<JobOrderDetailPage> {
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (_, i) {
               final it = items[i];
-              return ItemCard(
-                item: it,
-                onOpen: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ItemDetailPage(
-                        jobOrderId: widget.jobOrderId,
-                        orderNumber: widget.orderNumber,
-                        clientName: widget.clientName,
-                        itemId: it.id,
-                        itemCode: it.code,
-                        itemDescription: it.description,
-                        quantity: it.quantity,
+              return Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+                child: ListTile(
+                  title: Text("${it.code} — ${it.description}"),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Qty: ${it.quantity}"),
+                      const SizedBox(height: 4),
+                      _buildScannedUsers(widget.jobOrderId, it.id),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ItemDetailPage(
+                          jobOrderId: widget.jobOrderId,
+                          orderNumber: widget.orderNumber,
+                          clientName: widget.clientName,
+                          itemId: it.id,
+                          itemCode: it.code,
+                          itemDescription: it.description,
+                          quantity: it.quantity,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               );
             },
           );

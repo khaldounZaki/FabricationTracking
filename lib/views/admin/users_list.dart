@@ -1,5 +1,11 @@
-// lib/views/admin/users_list.dart
 import 'package:flutter/material.dart';
+import 'package:excel/excel.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:io';
+
 import '../../services/firestore_service.dart';
 import '../../models/user.dart';
 
@@ -11,16 +17,7 @@ class UsersPage extends StatelessWidget {
     final _db = FirestoreService();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Users'),
-        // actions: [
-        //   IconButton(
-        //     icon: const Icon(Icons.add),
-        //     tooltip: "Add User",
-        //     onPressed: () => _showUserDialog(context, _db),
-        //   ),
-        // ],
-      ),
+      appBar: AppBar(title: const Text('Users')),
       body: StreamBuilder<List<AppUser>>(
         stream: _db.getUsers(),
         builder: (_, snap) {
@@ -88,6 +85,11 @@ class UsersPage extends StatelessWidget {
                               _showUserDialog(context, _db, user: u),
                           child: const Text("Edit"),
                         ),
+                        TextButton(
+                          onPressed: () =>
+                              _showReportDialog(context, _db, user: u),
+                          child: const Text("Report"),
+                        ),
                       ],
                     )),
                   ]);
@@ -100,7 +102,192 @@ class UsersPage extends StatelessWidget {
     );
   }
 
-  /// Show Add/Edit dialog
+  /// 📄 Show Report Options (Date range + type)
+  void _showReportDialog(BuildContext context, FirestoreService db,
+      {required AppUser user}) async {
+    DateTimeRange? pickedRange;
+    String reportType = "pdf";
+
+    await showDialog(
+      context: context,
+      builder: (_) {
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            title: Text("Generate Report for ${user.name}"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: () async {
+                    final now = DateTime.now();
+                    final firstDate = DateTime(now.year - 1);
+                    final lastDate = DateTime(now.year + 1);
+                    final range = await showDateRangePicker(
+                      context: context,
+                      firstDate: firstDate,
+                      lastDate: lastDate,
+                      initialDateRange: pickedRange ??
+                          DateTimeRange(
+                              start: now.subtract(const Duration(days: 30)),
+                              end: now),
+                    );
+                    if (range != null) {
+                      setState(() => pickedRange = range);
+                    }
+                  },
+                  child: Text(pickedRange == null
+                      ? "Select Date Range"
+                      : "${pickedRange!.start.toLocal()} → ${pickedRange!.end.toLocal()}"),
+                ),
+                const SizedBox(height: 12),
+                DropdownButton<String>(
+                  value: reportType,
+                  items: const [
+                    DropdownMenuItem(value: "pdf", child: Text("PDF")),
+                    DropdownMenuItem(value: "excel", child: Text("Excel")),
+                  ],
+                  onChanged: (val) => setState(() => reportType = val!),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Cancel")),
+              ElevatedButton(
+                onPressed: pickedRange == null
+                    ? null
+                    : () async {
+                        Navigator.pop(context);
+                        await _generateReport(context, db,
+                            user: user, range: pickedRange!, type: reportType);
+                      },
+                child: const Text("Generate"),
+              ),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  /// 📄 Generate Report (PDF or Excel)
+  Future<void> _generateReport(BuildContext context, FirestoreService db,
+      {required AppUser user,
+      required DateTimeRange range,
+      required String type}) async {
+    final logs = await db.getUserScanLogs(user.uid);
+
+    final filteredLogs = logs.where((log) {
+      final date = DateTime.tryParse(log["timestamp"].toString());
+      if (date == null) return false;
+      return date.isAfter(range.start) && date.isBefore(range.end);
+    }).toList();
+
+    if (filteredLogs.isEmpty) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("No scan logs in this date range.")),
+        );
+      }
+      return;
+    }
+
+    // Pick save folder
+    final outputDir = await FilePicker.platform.getDirectoryPath();
+
+    if (outputDir == null) return;
+
+    final fileName =
+        "${user.name}_report_${range.start.toString().split(' ').first}_${range.end.toString().split(' ').first}";
+
+    if (type == "excel") {
+      var excel = Excel.createExcel();
+      Sheet sheet = excel['Report'];
+      sheet.appendRow([
+        TextCellValue("Job Order Number"),
+        TextCellValue("Client Name"),
+        TextCellValue("Item Code"),
+        TextCellValue("Item Description"),
+        TextCellValue("SN"),
+        TextCellValue("Reason"),
+        TextCellValue("Date of Scan"),
+      ]);
+
+      for (var log in filteredLogs) {
+        sheet.appendRow([
+          TextCellValue(log["jobOrderNumber"] ?? ""),
+          TextCellValue(log["clientName"] ?? ""),
+          TextCellValue(log["itemCode"] ?? ""),
+          TextCellValue(log["itemDescription"] ?? ""),
+          TextCellValue(log["sn"] ?? ""),
+          TextCellValue(log["reason"] ?? ""),
+          TextCellValue(log["timestamp"].toString()),
+        ]);
+      }
+
+      final file = File("$outputDir/$fileName.xlsx")
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(excel.encode()!);
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Excel saved to ${file.path}")),
+        );
+      }
+    } else {
+      final pdf = pw.Document();
+      pdf.addPage(
+        pw.MultiPage(
+          build: (pw.Context ctx) => [
+            pw.Header(
+              level: 0,
+              child: pw.Text("Scan Report",
+                  style: pw.TextStyle(
+                      fontSize: 22, fontWeight: pw.FontWeight.bold)),
+            ),
+            pw.Text("User: ${user.name} (${user.email})"),
+            pw.Text("Role: ${user.role}"),
+            pw.Text("Date range: ${range.start} → ${range.end}"),
+            pw.SizedBox(height: 20),
+            pw.Table.fromTextArray(
+              headers: [
+                "Job Order Number",
+                "Client Name",
+                "Item Code",
+                "Item Description",
+                "SN",
+                "Reason",
+                "Date of Scan"
+              ],
+              data: filteredLogs.map((log) {
+                return [
+                  log["jobOrderNumber"],
+                  log["clientName"],
+                  log["itemCode"],
+                  log["itemDescription"],
+                  log["sn"],
+                  log["reason"],
+                  log["timestamp"].toString(),
+                ];
+              }).toList(),
+            )
+          ],
+        ),
+      );
+
+      final file = File("$outputDir/$fileName.pdf")
+        ..writeAsBytesSync(await pdf.save());
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("PDF saved to ${file.path}")),
+        );
+      }
+    }
+  }
+
+  /// Show Add/Edit dialog (unchanged)
   void _showUserDialog(BuildContext context, FirestoreService db,
       {AppUser? user}) {
     final nameCtrl = TextEditingController(text: user?.name ?? '');
@@ -122,8 +309,7 @@ class UsersPage extends StatelessWidget {
                 TextField(
                   controller: emailCtrl,
                   decoration: const InputDecoration(labelText: "Email"),
-                  enabled:
-                      user == null, // if editing, don't allow changing email
+                  enabled: user == null,
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -155,7 +341,6 @@ class UsersPage extends StatelessWidget {
                     DropdownMenuItem(
                         value: "Installer", child: Text("Installer")),
                     DropdownMenuItem(value: "", child: Text("")),
-                    //DropdownMenuItem(value: "Admin", child: Text("Admin")),
                   ],
                   onChanged: (val) => role = val ?? role,
                   decoration: const InputDecoration(labelText: "Role"),
@@ -182,7 +367,6 @@ class UsersPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 if (user == null) {
-                  // Create new user doc (admin created)
                   await db.addUser(
                     email: emailCtrl.text.trim(),
                     name: nameCtrl.text.trim(),
@@ -192,7 +376,6 @@ class UsersPage extends StatelessWidget {
                     isActive: isActive,
                   );
                 } else {
-                  // Update existing user
                   await db.updateUserInfo(
                     uid: user.uid,
                     name: nameCtrl.text.trim(),
@@ -200,7 +383,6 @@ class UsersPage extends StatelessWidget {
                     photoUrl: photoCtrl.text.trim(),
                     role: role,
                   );
-                  // Also ensure isActive synced
                   await db.updateUserStatus(user.uid, isActive);
                 }
                 if (context.mounted) Navigator.pop(context);
