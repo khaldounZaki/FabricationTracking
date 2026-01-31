@@ -5,6 +5,7 @@ class Part {
   final String itemId;
   final String description;
   final String sn;
+  final int qty;
   final DateTime createdAt;
 
   Part({
@@ -12,6 +13,7 @@ class Part {
     required this.itemId,
     required this.description,
     required this.sn,
+    this.qty = 1,
     required this.createdAt,
   });
 
@@ -22,6 +24,7 @@ class Part {
       itemId: data['itemId'] ?? '',
       description: data['description'] ?? '',
       sn: data['sn'] ?? '',
+      qty: (data['qty'] is int) ? data['qty'] as int : int.tryParse('${data['qty']}') ?? 1,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
@@ -31,6 +34,7 @@ class Part {
       'itemId': itemId,
       'description': description,
       'sn': sn,
+      'qty': qty,
       'createdAt': Timestamp.fromDate(createdAt),
     };
   }

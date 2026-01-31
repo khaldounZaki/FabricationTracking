@@ -23,16 +23,16 @@ class PartCard extends StatelessWidget {
         leading: const Icon(Icons.build),
         title: Text(part.description),
         subtitle: subtitleRight == null ? null : Text(subtitleRight!),
-        trailing: Row(
+        trailing: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (onPrint != null)
-              IconButton(
-                icon: const Icon(Icons.print),
-                onPressed: onPrint,
-                tooltip: 'Print Sticker',
-              ),
-            const Icon(Icons.chevron_right),
+            // if (onPrint != null)
+            //   IconButton(
+            //     icon: const Icon(Icons.print),
+            //     onPressed: onPrint,
+            //     tooltip: 'Print Sticker',
+            //   ),
+            Icon(Icons.chevron_right),
           ],
         ),
         onTap: onOpen,
